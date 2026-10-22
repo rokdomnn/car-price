@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>คำนวณราคารถ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+/* Layout: workbench — editor column on the left, live quote "paper" on the right; tabs on phones */
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --fg:#17202b; --muted:#5d6878; --line:#d6dce4;
+  --accent:#c8102e; --accent-soft:#fbe7ea; --ink:#1d2a3a; --good:#1f7a4d; --field:#f7f9fb;
+  --paper:#ffffff; --paper-ink:#18212c; --paper-line:#cfd6df; --paper-head:#1d2a3a; --paper-soft:#f1f4f8; --paper-accent:#c8102e;
+  --display:"Chakra Petch","IBM Plex Sans Thai",system-ui,sans-serif;
+  --body:"IBM Plex Sans Thai",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f141a; --panel:#18202a; --fg:#e6ebf1; --muted:#9aa6b5; --line:#2b3644;
+  --accent:#ff5a6e; --accent-soft:#3a1d24; --ink:#d9e2ec; --good:#5fd39a; --field:#111820; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141a; --panel:#18202a; --fg:#e6ebf1; --muted:#9aa6b5; --line:#2b3644;
+  --accent:#ff5a6e; --accent-soft:#3a1d24; --ink:#d9e2ec; --good:#5fd39a; --field:#111820; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;max-width:1400px;margin:0 auto 14px}
+.top h1{font-size:24px;letter-spacing:.01em}
+.top h1 span{color:var(--accent)}
+.status{font-size:12px;color:var(--muted)}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 12px;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{padding:3px 9px;font-size:13px}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--accent)}
+.tabs{display:flex;gap:6px;overflow-x:auto;max-width:1400px;margin:0 auto 14px;padding-bottom:4px}
+.tab{white-space:nowrap;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 14px;font-family:var(--display);font-weight:600}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tab.add{border-style:dashed;color:var(--muted)}
+.view-switch{display:none;max-width:1400px;margin:0 auto 12px;gap:6px}
+.view-switch button{flex:1}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;max-width:1400px;margin:0 auto;align-items:start}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}.view-switch{display:flex}
+  .grid[data-view="edit"] .preview-col{display:none}.grid[data-view="preview"] .editor{display:none}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:12px}
+.editor{display:grid;gap:14px;min-width:0}
+.panel h2{font-size:17px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.panel h3{font-size:14px;color:var(--muted);font-weight:600;letter-spacing:.02em}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label.f{display:grid;gap:3px;font-size:12px;color:var(--muted);min-width:0}
+label.f.wide{grid-column:1/-1}
+input,select,textarea{background:var(--field);border:1px solid var(--line);border-radius:7px;padding:6px 8px;width:100%;min-width:0;font-size:14px}
+textarea{resize:vertical;min-height:70px}
+input[type=number]{font-variant-numeric:tabular-nums}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:2px 4px}
+.tbl td{padding:3px 4px;vertical-align:middle}
+.tbl td.calc{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;color:var(--good);font-weight:600}
+.scroll{overflow-x:auto}
+.iconbtn{border:none;background:transparent;color:var(--muted);font-size:16px;padding:2px 6px;border-radius:6px}
+.iconbtn:hover{color:var(--accent);background:var(--accent-soft)}
+.hint{font-size:12px;color:var(--muted)}
+.preview-col{position:sticky;top:12px;display:grid;gap:10px;min-width:0}
+.paper-wrap{overflow:hidden;border-radius:10px;border:1px solid var(--line);background:var(--paper)}
+/* Quote paper: always light, it is what gets exported */
+.quote{width:820px;background:var(--paper);color:var(--paper-ink);font-family:var(--body);padding:26px 28px;font-size:14px;line-height:1.45}
+.q-head{display:flex;justify-content:space-between;gap:16px;border-bottom:3px solid var(--paper-head);padding-bottom:10px;margin-bottom:14px}
+.q-head .t{font-family:var(--display);font-size:22px;font-weight:700;color:var(--paper-head)}
+.q-head .meta{font-size:13px;text-align:right}
+.q-head .meta b{font-weight:600}
+.q-block{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px dashed var(--paper-line)}
+.q-model{grid-column:1/-1;display:flex;gap:10px;align-items:baseline;font-family:var(--display);font-size:17px;font-weight:600;color:var(--paper-head)}
+.q-model small{font-family:var(--body);font-size:12px;color:#5d6878;font-weight:500}
+.q-tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.q-tbl td,.q-tbl th{padding:4px 6px;border-bottom:1px solid var(--paper-line)}
+.q-tbl th{background:var(--paper-soft);font-weight:600;font-size:12px;text-align:right}
+.q-tbl th:first-child{text-align:left}
+.q-tbl td.n{text-align:right}
+.q-tbl tr.em td{font-weight:600}
+.q-tbl .big{font-family:var(--display);font-size:16px;font-weight:700;color:var(--paper-accent)}
+.q-total td{background:var(--paper-head);color:#fff;font-weight:700;border-bottom:none}
+.q-total td.n{font-family:var(--display);font-size:17px}
+.q-cap{font-size:12px;font-weight:600;color:var(--paper-head);letter-spacing:.03em;margin:0 0 4px}
+.q-note{grid-column:1/-1;font-size:12px;color:var(--paper-accent)}
+.q-gifts h4{margin:0 0 6px;font-family:var(--display);font-size:15px;color:var(--paper-head)}
+.q-gifts ul{margin:0;padding-left:18px;columns:2;column-gap:28px;font-size:13px}
+.q-gifts li{break-inside:avoid}
+.gift-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px 14px}
+.gift{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
+.gift label{display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:3px 0;min-width:0}
+.gift input{width:18px;height:18px;flex:none;margin-top:2px;accent-color:var(--accent)}
+.gift.off span{color:var(--muted);text-decoration:line-through}
+.gift-add{display:flex;gap:8px}
+.overlay{position:fixed;inset:0;background:rgba(10,14,20,.6);display:grid;place-items:center;padding:20px;z-index:50}
+.dialog{background:var(--panel);color:var(--fg);border-radius:12px;padding:18px;max-width:560px;width:100%;display:grid;gap:12px;max-height:90vh;overflow:auto}
+.dialog img{width:100%;border:1px solid var(--line);border-radius:6px}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:13px;z-index:60}
+@media (prefers-reduced-motion:no-preference){.btn,.tab{transition:border-color .15s,background .15s}}
+</style>
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+
+<header class="top">
+  <h1>คำนวณราคา<span>รถ</span></h1>
+  <div class="actions">
+    <span class="status" id="status">กำลังโหลด…</span>
+    <button class="btn" id="btnXlsxAll">Excel ทุกชีต</button>
+    <button class="btn" id="btnXlsx">ส่งออก Excel</button>
+    <button class="btn primary" id="btnJpg">ส่งออก JPEG</button>
+  </div>
+</header>
+<nav class="tabs" id="tabs" aria-label="ชีตราคา"></nav>
+<div class="view-switch" id="viewSwitch">
+  <button class="btn" data-v="edit">แก้ไขข้อมูล</button>
+  <button class="btn" data-v="preview">ดูใบเสนอราคา</button>
+</div>
+<main class="grid" id="grid" data-view="edit">
+  <section class="editor" id="editor"></section>
+  <section class="preview-col">
+    <div class="paper-wrap"><div class="quote" id="quote"></div></div>
+    <p class="hint">ใบเสนอราคานี้คือสิ่งที่ถูกส่งออกเป็น JPEG และ Excel</p>
+  </section>
+</main>
+<div id="layer"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+const DEFAULTS = {"consultantLabel": "ที่ปรึกษาการขาย", "consultant": "", "templates": [{"name": "Cityh15", "customer": "", "blocks": [{"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 699000, "extra": 50000, "extraLabel": "บวกเพิ่ม", "downPct": 15.0, "terms": [{"months": 48, "rate": 2.85, "label": "48 งวด (4 ปี)"}, {"months": 60, "rate": 3.05, "label": "60 งวด (5 ปี)"}, {"months": 72, "rate": 3.45, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.95, "label": "84 งวด (7 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด", "v": 0}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": "*ลูกค้าเก่าลดดอกเบี้ยอีก 0.15% *จ่ายงวดแรกพร้อมเงินดาน์ลดดอกเบี้ยอีก 0.10%"}, {"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 699000, "extra": 0, "extraLabel": "บวกเพิ่ม", "downPct": 15.0, "terms": [{"months": 48, "rate": 2.85, "label": "48 งวด (4 ปี)"}, {"months": 60, "rate": 3.05, "label": "60 งวด (5 ปี)"}, {"months": 72, "rate": 3.45, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.95, "label": "84 งวด (7 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด", "v": 0}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": ""}], "giftsTitle": "รายการของแถม (แคมเปญ) กรกฏาคม 2569 ออกรถภายใน 30 กันยายน 2569", "giftsLeft": ["ประกันชั้น 1 ซ่อมศูนย์", "พรบ", "กรอบป้ายทะเบียน", "คิ้วบันไดสแตนเลท", "ถาดวางของท้ายรถ", "คิ้วกันสาด", "ผ้ายางปูพื้น", "เคลือบสีก่อนส่งมอบ", "น้ำมัน", "เซ็นเซอร์กะระยะหลัง 2 จุด"], "giftsRight": ["ฟิล์มกรองแสงชนิดเซรามิก รับประกันคุณภาพ 7 ปี", "รับประกันคุณภาพรถใหม่ 3 ปี 100,000 km", "ฟรีค่าแรงเช็กระยะ 10,000-20,000 km.", "บริการช่วยเหลือฉุกเฉิน 24 ชม. นาน 3 ปี /100,000 km", "รับประกันแบตเตอรี่ไฮบริด 10 ปี", "กล้องหน้า", "ส่วนลด", "ปลอกหุ้มเข็มขัดนิรภัย", "ซองกุญแจ", "ไฟส่องเท้า"]}, {"name": "Cityh20", "customer": "", "blocks": [{"model": "City e:HEV รุ่น SV สีเทา", "price": 689000, "extra": 50000, "extraLabel": "บวกเพิ่ม", "downPct": 21.0, "terms": [{"months": 48, "rate": 2.25, "label": "48 งวด (4 ปี)"}, {"months": 60, "rate": 2.45, "label": "60 งวด (5 ปี)"}, {"months": 72, "rate": 2.85, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.45, "label": "84 งวด (7 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด", "v": 60000}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": "*ลูกค้าเก่าลดดอกเบี้ยอีก 0.15% *จ่ายงวดแรกพร้อมเงินดาน์ลดดอกเบี้ยอีก 0.10%"}, {"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 689000, "extra": 0, "extraLabel": "บวกเพิ่ม", "downPct": 20.0, "terms": [{"months": 48, "rate": 2.25, "label": "48 งวด (4 ปี)"}, {"months": 60, "rate": 2.45, "label": "60 งวด (5 ปี)"}, {"months": 72, "rate": 2.85, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.45, "label": "84 งวด (7 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด", "v": 10000}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": ""}], "giftsTitle": "รายการของแถม (แคมเปญ) กรกฏาคม 2569 ออกรถภายใน 30 กันยายน 2569", "giftsLeft": ["ประกันชั้น 1 ซ่อมศูนย์", "พรบ", "กรอบป้ายทะเบียน", "คิ้วบันไดสแตนเลท", "ถาดวางของท้ายรถ", "คิ้วกันสาด", "ผ้ายางปูพื้น", "เคลือบสีก่อนส่งมอบ", "น้ำมัน", "เซ็นเซอร์กะระยะหลัง 2 จุด"], "giftsRight": ["ฟิล์มกรองแสงชนิดเซรามิก รับประกันคุณภาพ 7 ปี", "รับประกันคุณภาพรถใหม่ 3 ปี 100,000 km", "ฟรีค่าแรงเช็กระยะ 10,000-20,000 km.", "บริการช่วยเหลือฉุกเฉิน 24 ชม. นาน 3 ปี /100,000 km", "รับประกันแบตเตอรี่ไฮบริด 10 ปี", "กล้องหน้า", "ส่วนลด", "ปลอกหุ้มเข็มขัดนิรภัย", "ซองกุญแจ", "ไฟส่องเท้า"]}, {"name": "Cityh25 (2)", "customer": "", "blocks": [{"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 699000, "extra": 50000, "extraLabel": "บวกเพิ่ม", "downPct": 25.0, "terms": [{"months": 48, "rate": 1.69, "label": "48 งวด (4 ปี)"}, {"months": 60, "rate": 2.29, "label": "60 งวด (5 ปี)"}, {"months": 72, "rate": 2.69, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.25, "label": "84 งวด (7 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด(ซับ)", "v": 60000}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": "*ลูกค้าเก่าลดดอกเบี้ยอีก 0.15% *จ่ายงวดแรกพร้อมเงินดาน์ลดดอกเบี้ยอีก 0.10%"}, {"model": "City e:HEV รุ่น SV สีเทา", "price": 689000, "extra": 0, "extraLabel": "บวกเพิ่ม", "downPct": 35.0, "terms": [{"months": 48, "rate": 1.69, "label": "48 งวด (4 ปี)"}, {"months": 60, "rate": 2.29, "label": "60 งวด (5 ปี)"}, {"months": 72, "rate": 2.69, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.25, "label": "84 งวด (7 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด", "v": 10000}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": ""}], "giftsTitle": "รายการของแถม (แคมเปญ) กรกฏาคม 2569 ออกรถภายใน 30 กันยายน 2569", "giftsLeft": ["ประกันชั้น 1 ซ่อมศูนย์", "พรบ", "กรอบป้ายทะเบียน", "คิ้วบันไดสแตนเลท", "ถาดวางของท้ายรถ", "คิ้วกันสาด", "ผ้ายางปูพื้น", "เคลือบสีก่อนส่งมอบ", "น้ำมัน", "เซ็นเซอร์กะระยะหลัง 2 จุด"], "giftsRight": ["ฟิล์มกรองแสงชนิดเซรามิก รับประกันคุณภาพ 7 ปี", "รับประกันคุณภาพรถใหม่ 3 ปี 100,000 km", "ฟรีค่าแรงเช็กระยะ 10,000-20,000 km.", "บริการช่วยเหลือฉุกเฉิน 24 ชม. นาน 3 ปี /100,000 km", "รับประกันแบตเตอรี่ไฮบริด 10 ปี", "กล้องหน้า", "ส่วนลด", "ปลอกหุ้มเข็มขัดนิรภัย", "ซองกุญแจ", "ไฟส่องเท้า"]}, {"name": "Cityh+", "customer": "", "blocks": [{"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 699000, "extra": 50000, "extraLabel": "บวกเพิ่ม", "downPct": 25.0, "terms": [{"months": 48, "rate": 1.69, "label": "48 งวด (4 ปี)"}, {"months": 60, "rate": 2.29, "label": "60 งวด (5 ปี)"}, {"months": 72, "rate": 2.69, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.25, "label": "84 งวด (7 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด", "v": 50000}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": "*ลูกค้าเก่าลดดอกเบี้ยอีก 0.15% *จ่ายงวดแรกพร้อมเงินดาน์ลดดอกเบี้ยอีก 0.10%"}, {"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 699000, "extra": 0, "extraLabel": "บวกเพิ่ม", "downPct": 25.0, "terms": [{"months": 48, "rate": 1.69, "label": "48 งวด (4 ปี)"}, {"months": 60, "rate": 2.29, "label": "60 งวด (5 ปี)"}, {"months": 72, "rate": 2.69, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.25, "label": "84 งวด (7 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด", "v": 0}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": ""}], "giftsTitle": "รายการของแถม (แคมเปญ) กรกฏาคม 2569 ออกรถภายใน 30 กันยายน 2569", "giftsLeft": ["ประกันชั้น 1 ซ่อมศูนย์", "พรบ", "กรอบป้ายทะเบียน", "คิ้วบันไดสแตนเลท", "ถาดวางของท้ายรถ", "คิ้วกันสาด", "ผ้ายางปูพื้น", "เคลือบสีก่อนส่งมอบ", "น้ำมัน", "เซ็นเซอร์กะระยะหลัง 2 จุด"], "giftsRight": ["ฟิล์มกรองแสงชนิดเซรามิก รับประกันคุณภาพ 7 ปี", "รับประกันคุณภาพรถใหม่ 3 ปี 100,000 km", "ฟรีค่าแรงเช็กระยะ 10,000-20,000 km.", "บริการช่วยเหลือฉุกเฉิน 24 ชม. นาน 3 ปี /100,000 km", "รับประกันแบตเตอรี่ไฮบริด 10 ปี", "กล้องหน้า", "ส่วนลด", "ปลอกหุ้มเข็มขัดนิรภัย", "ซองกุญแจ", "ไฟส่องเท้า"]}, {"name": "Cityh158", "customer": "", "blocks": [{"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 699000, "extra": 50000, "extraLabel": "บวกเพิ่ม", "downPct": 15.0, "terms": [{"months": 72, "rate": 3.45, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.95, "label": "84 งวด (7 ปี)"}, {"months": 99, "rate": 4.59, "label": "99 งวด (8 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด(ซับ)", "v": 50000}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": "*ลูกค้าเก่าลดดอกเบี้ยอีก 0.15% *จ่ายงวดแรกพร้อมเงินดาน์ลดดอกเบี้ยอีก 0.10%"}, {"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 699000, "extra": 0, "extraLabel": "บวกเพิ่ม", "downPct": 15.0, "terms": [{"months": 72, "rate": 3.45, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.95, "label": "84 งวด (7 ปี)"}, {"months": 99, "rate": 4.59, "label": "99 งวด (8 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด", "v": 0}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": ""}], "giftsTitle": "รายการของแถม (แคมเปญ) กรกฏาคม 2569 ออกรถภายใน 30 กันยายน 2569", "giftsLeft": ["ประกันชั้น 1 ซ่อมศูนย์", "พรบ", "กรอบป้ายทะเบียน", "คิ้วบันไดสแตนเลท", "ถาดวางของท้ายรถ", "คิ้วกันสาด", "ผ้ายางปูพื้น", "เคลือบสีก่อนส่งมอบ", "น้ำมัน", "เซ็นเซอร์กะระยะหลัง 2 จุด"], "giftsRight": ["ฟิล์มกรองแสงชนิดเซรามิก รับประกันคุณภาพ 7 ปี", "รับประกันคุณภาพรถใหม่ 3 ปี 100,000 km", "ฟรีค่าแรงเช็กระยะ 10,000-20,000 km.", "บริการช่วยเหลือฉุกเฉิน 24 ชม. นาน 3 ปี /100,000 km", "รับประกันแบตเตอรี่ไฮบริด 10 ปี", "กล้องหน้า", "ส่วนลด", "ปลอกหุ้มเข็มขัดนิรภัย", "ซองกุญแจ", "ไฟส่องเท้า"]}, {"name": "Cityh208", "customer": "", "blocks": [{"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 699000, "extra": 50000, "extraLabel": "บวกเพิ่ม", "downPct": 20.0, "terms": [{"months": 72, "rate": 2.85, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.45, "label": "84 งวด (7 ปี)"}, {"months": 99, "rate": 4.09, "label": "99 งวด (8 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด(ซับ)", "v": 50000}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": "*ลูกค้าเก่าลดดอกเบี้ยอีก 0.15% *จ่ายงวดแรกพร้อมเงินดาน์ลดดอกเบี้ยอีก 0.10%"}, {"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 699000, "extra": 0, "extraLabel": "บวกเพิ่ม", "downPct": 20.0, "terms": [{"months": 72, "rate": 2.85, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.45, "label": "84 งวด (7 ปี)"}, {"months": 99, "rate": 4.09, "label": "99 งวด (8 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด", "v": 0}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": ""}], "giftsTitle": "รายการของแถม (แคมเปญ) กรกฏาคม 2569 ออกรถภายใน 30 กันยายน 2569", "giftsLeft": ["ประกันชั้น 1 ซ่อมศูนย์", "พรบ", "กรอบป้ายทะเบียน", "คิ้วบันไดสแตนเลท", "ถาดวางของท้ายรถ", "คิ้วกันสาด", "ผ้ายางปูพื้น", "เคลือบสีก่อนส่งมอบ", "น้ำมัน", "เซ็นเซอร์กะระยะหลัง 2 จุด"], "giftsRight": ["ฟิล์มกรองแสงชนิดเซรามิก รับประกันคุณภาพ 7 ปี", "รับประกันคุณภาพรถใหม่ 3 ปี 100,000 km", "ฟรีค่าแรงเช็กระยะ 10,000-20,000 km.", "บริการช่วยเหลือฉุกเฉิน 24 ชม. นาน 3 ปี /100,000 km", "รับประกันแบตเตอรี่ไฮบริด 10 ปี", "กล้องหน้า", "ส่วนลด", "ปลอกหุ้มเข็มขัดนิรภัย", "ซองกุญแจ", "ไฟส่องเท้า"]}, {"name": "Cityh258", "customer": "", "blocks": [{"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 699000, "extra": 50000, "extraLabel": "บวกเพิ่ม", "downPct": 20.0, "terms": [{"months": 72, "rate": 2.85, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.45, "label": "84 งวด (7 ปี)"}, {"months": 99, "rate": 4.09, "label": "99 งวด (8 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด(ซับ)", "v": 60000}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": "*ลูกค้าเก่าลดดอกเบี้ยอีก 0.15% *จ่ายงวดแรกพร้อมเงินดาน์ลดดอกเบี้ยอีก 0.10%"}, {"model": "City Hatchback e:HEV รุ่น SV สีเทา", "price": 699000, "extra": 0, "extraLabel": "บวกเพิ่ม", "downPct": 15.0, "terms": [{"months": 72, "rate": 3.45, "label": "72 งวด (6 ปี)"}, {"months": 84, "rate": 3.95, "label": "84 งวด (7 ปี)"}, {"months": 99, "rate": 4.59, "label": "99 งวด (8 ปี)"}], "rows": [{"k": "down", "label": "เงินดาวน์"}, {"k": "text", "label": "ประกันชั้น 1 + พรบ.", "text": "แถม"}, {"k": "add", "label": "จดทะเบียน (พังงา)", "v": 3300}, {"k": "wht", "label": "อื่นๆ (หักภาษี ณที่จ่าย3%)", "pct": 3}, {"k": "add", "label": "มัดจำป้ายแดง (คืนเงิน)", "v": 3000}, {"k": "discount", "label": "ส่วนลด", "v": 10000}, {"k": "sub", "label": "หัก เงินมัดจำ", "v": 3000}], "totalLabel": "ยอดคงเหลือ (ออกรถ)", "note": ""}], "giftsTitle": "รายการของแถม (แคมเปญ) กรกฏาคม 2569 ออกรถภายใน 30 กันยายน 2569", "giftsLeft": ["ประกันชั้น 1 ซ่อมศูนย์", "พรบ", "กรอบป้ายทะเบียน", "คิ้วบันไดสแตนเลท", "ถาดวางของท้ายรถ", "คิ้วกันสาด", "ผ้ายางปูพื้น", "เคลือบสีก่อนส่งมอบ", "น้ำมัน", "เซ็นเซอร์กะระยะหลัง 2 จุด"], "giftsRight": ["ฟิล์มกรองแสงชนิดเซรามิก รับประกันคุณภาพ 7 ปี", "รับประกันคุณภาพรถใหม่ 3 ปี 100,000 km", "ฟรีค่าแรงเช็กระยะ 10,000-20,000 km.", "บริการช่วยเหลือฉุกเฉิน 24 ชม. นาน 3 ปี /100,000 km", "รับประกันแบตเตอรี่ไฮบริด 10 ปี", "กล้องหน้า", "ส่วนลด", "ปลอกหุ้มเข็มขัดนิรภัย", "ซองกุญแจ", "ไฟส่องเท้า"]}]}
+;
+const clone = o => JSON.parse(JSON.stringify(o));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const FIXED_GIFTS = [...DEFAULTS.templates[0].giftsLeft, ...DEFAULTS.templates[0].giftsRight];
+// Gift list: the campaign items are locked; each sheet only ticks them on/off and may add its own items
+function normGifts(t){
+  const old = t.gifts || [...(t.giftsLeft || []), ...(t.giftsRight || [])].map(text => ({text, on: true}));
+  const onOf = Object.fromEntries(old.map(g => [g.text, g.on !== false]));
+  t.gifts = [...FIXED_GIFTS.map(text => ({text, on: text in onOf ? onOf[text] : true, fixed: true})),
+             ...old.filter(g => !g.fixed && !FIXED_GIFTS.includes(g.text)).map(g => ({text: g.text, on: g.on !== false}))];
+  delete t.giftsLeft; delete t.giftsRight;
+  return t;
+}
+function normState(s){ s.templates.forEach(normGifts); return s; }
+function freshState(){
+  const d = clone(DEFAULTS);
+  d.templates.forEach(t => t.id = uid());
+  d.activeId = d.templates[0].id;
+  d.v = 1;
+  return normState(d);
+}
+let S = freshState();
+let store = null; // {db, path}
+const LS_KEY = 'car-price-state-v1';
+
+/* ---------- calculations (mirror the Excel formulas) ---------- */
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+function calcBlock(b){
+  const price = num(b.price), extra = num(b.extra);
+  const total = price + extra;                       // E5 = C5+D5
+  const down = total * num(b.downPct) / 100;          // C6 = E5*B6
+  const fin = total - down;                           // C7 = E5-C6
+  const terms = b.terms.map(t => {
+    const m = num(t.months), yrs = m / 12;            // 99 งวด -> 8.25 ปี
+    const interest = fin * num(t.rate) / 100 * yrs;   // E9 = (C7*C9)*4
+    const monthly = m ? (fin + interest) / m : 0;     // D9 = ((C7*C9)*4+C7)/48
+    return {...t, interest, monthly};
+  });
+  const discountSum = b.rows.filter(r => r.k === 'discount').reduce((a, r) => a + num(r.v), 0);
+  let dayout = 0;
+  const rows = b.rows.map(r => {
+    let val = null;
+    if (r.k === 'down') val = down;
+    else if (r.k === 'add') val = num(r.v);
+    else if (r.k === 'sub' || r.k === 'discount') val = num(r.v);
+    else if (r.k === 'wht') val = discountSum * num(r.pct) / 100;  // H8 = H10*3/100
+    if (val !== null) dayout += (r.k === 'sub' || r.k === 'discount') ? -val : val;
+    return {...r, val};
+  });
+  return {price, extra, total, down, fin, terms, rows, dayout};
+}
+const fmt = n => Math.round(n).toLocaleString('th-TH');
+const fmtPct = n => (+num(n).toFixed(4)) + '%';
+
+/* ---------- persistence ---------- */
+let saveTimer = null, saving = false;
+function setStatus(t){ document.getElementById('status').textContent = t; }
+function scheduleSave(){
+  setStatus('ยังไม่บันทึก…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 700);
+}
+async function saveNow(){
+  try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch(e) {}
+  if (!store) { setStatus('บันทึกไว้ในเครื่องนี้'); return; }
+  try { await store.ref.set({state: JSON.stringify(S), at: Date.now()}); setStatus('บันทึกแล้ว'); }
+  catch(e){
+    if (e && e.code === 'unavailable') { setTimeout(saveNow, 1500 + Math.random()*1000); setStatus('กำลังลองบันทึกใหม่…'); }
+    else setStatus('บันทึกออนไลน์ไม่ได้ เก็บไว้ในเครื่องนี้แทน');
+  }
+}
+function loadLocal(){
+  try { const s = localStorage.getItem(LS_KEY); if (s) { const o = JSON.parse(s); if (o && o.templates && o.templates.length) return o; } } catch(e) {}
+  return null;
+}
+async function initStore(){
+  const local = loadLocal();
+  if (local) { S = normState(local); renderAll(); }
+  const c = window.claude;
+  if (!c || !c.use) { setStatus(local ? 'บันทึกไว้ในเครื่องนี้' : 'ข้อมูลตั้งต้นจาก Excel'); return; }
+  try {
+    const [db, user] = await Promise.all([c.use('db'), c.use('user')]);
+    const id = user ? await user.id() : null;
+    if (!db || !id) { setStatus(local ? 'บันทึกไว้ในเครื่องนี้' : 'ข้อมูลตั้งต้นจาก Excel'); return; }
+    store = {ref: db.doc('data/users/' + id + '/state')};
+    const snap = await store.ref.get();
+    if (snap.exists) {
+      const o = JSON.parse(snap.data().state);
+      if (o && o.templates && o.templates.length) { S = normState(o); renderAll(); }
+      setStatus('บันทึกแล้ว');
+    } else { await saveNow(); }
+  } catch(e) { setStatus('บันทึกไว้ในเครื่องนี้'); }
+}
+
+/* ---------- helpers ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cur = () => S.templates.find(t => t.id === S.activeId) || S.templates[0];
+function getPath(path){ return path.split('.').reduce((o, k) => o[k], S); }
+function setPath(path, v){ const ks = path.split('.'); const last = ks.pop(); ks.reduce((o, k) => o[k], S)[last] = v; }
+function tplPath(){ return 'templates.' + S.templates.indexOf(cur()); }
+function toast(t){ const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2600); }
+const KIND_LABEL = {down:'เงินดาวน์ (คำนวณ)', add:'บวก (+)', sub:'หัก (−)', discount:'ส่วนลด (−) คิดภาษี', wht:'ภาษี ณ ที่จ่าย % ของส่วนลด', text:'ข้อความ'};
+
+/* ---------- editor ---------- */
+function inp(path, val, type='text', extra=''){
+  return `<input type="${type}" data-p="${path}" data-t="${type}" value="${esc(val)}" ${type==='number'?'step="any" inputmode="decimal"':''} ${extra}>`;
+}
+function renderTabs(){
+  const el = document.getElementById('tabs');
+  el.innerHTML = S.templates.map(t => `<button class="tab" role="tab" aria-selected="${t.id===S.activeId}" data-tab="${t.id}">${esc(t.name || 'ไม่มีชื่อ')}</button>`).join('')
+    + `<button class="tab add" data-act="newTpl">+ ชีตใหม่</button>`;
+}
+function renderEditor(){
+  const t = cur(), tp = tplPath();
+  const blocks = t.blocks.map((b, bi) => {
+    const bp = `${tp}.blocks.${bi}`;
+    const c = calcBlock(b);
+    const terms = b.terms.map((x, i) => `<tr>
+      <td>${inp(`${bp}.terms.${i}.label`, x.label)}</td>
+      <td style="width:70px">${inp(`${bp}.terms.${i}.months`, x.months, 'number')}</td>
+      <td style="width:80px">${inp(`${bp}.terms.${i}.rate`, x.rate, 'number')}</td>
+      <td class="calc" data-calc="${bi}.m.${i}">${fmt(c.terms[i].monthly)}</td>
+      <td><button class="iconbtn" title="ลบงวดนี้" data-act="delTerm" data-b="${bi}" data-i="${i}">✕</button></td></tr>`).join('');
+    const rows = b.rows.map((r, i) => {
+      let val = '';
+      if (r.k === 'add' || r.k === 'sub' || r.k === 'discount') val = inp(`${bp}.rows.${i}.v`, r.v, 'number');
+      else if (r.k === 'wht') val = inp(`${bp}.rows.${i}.pct`, r.pct, 'number', 'title="เปอร์เซ็นต์"');
+      else if (r.k === 'text') val = inp(`${bp}.rows.${i}.text`, r.text);
+      else val = `<span class="hint">อัตโนมัติ</span>`;
+      return `<tr>
+        <td>${inp(`${bp}.rows.${i}.label`, r.label)}</td>
+        <td style="width:150px"><select data-p="${bp}.rows.${i}.k" data-t="kind">${Object.entries(KIND_LABEL).map(([k, l]) => `<option value="${k}" ${k===r.k?'selected':''}>${l}</option>`).join('')}</select></td>
+        <td style="width:110px">${val}</td>
+        <td class="calc" data-calc="${bi}.r.${i}">${c.rows[i].val === null ? '' : fmt(c.rows[i].val)}</td>
+        <td><button class="iconbtn" title="ลบรายการ" data-act="delRow" data-b="${bi}" data-i="${i}">✕</button></td></tr>`;
+    }).join('');
+    return `<div class="panel">
+      <h2>ชุดราคา ${bi + 1}
+        <span class="actions"><button class="btn small ghost" data-act="dupBlock" data-b="${bi}">ทำสำเนา</button>
+        <button class="btn small ghost danger" data-act="delBlock" data-b="${bi}">ลบชุดนี้</button></span></h2>
+      <div class="fields">
+        <label class="f wide">รุ่น/สี ${inp(`${bp}.model`, b.model)}</label>
+        <label class="f">ราคารถยนต์ ${inp(`${bp}.price`, b.price, 'number')}</label>
+        <label class="f">ชื่อรายการบวกเพิ่ม ${inp(`${bp}.extraLabel`, b.extraLabel)}</label>
+        <label class="f">จำนวนบวกเพิ่ม ${inp(`${bp}.extra`, b.extra, 'number')}</label>
+        <label class="f">เงินดาวน์ (%) ${inp(`${bp}.downPct`, b.downPct, 'number')}</label>
+      </div>
+      <div class="hint" data-calc="${bi}.sum">ราคารวม ${fmt(c.total)} · ดาวน์ ${fmt(c.down)} · ยอดจัด ${fmt(c.fin)}</div>
+      <h3>ผ่อนชำระ</h3>
+      <div class="scroll"><table class="tbl"><thead><tr><th>ชื่อแถว</th><th>งวด</th><th>ดอกเบี้ย/ปี %</th><th style="text-align:right">ค่างวด</th><th></th></tr></thead><tbody>${terms}</tbody></table></div>
+      <div><button class="btn small" data-act="addTerm" data-b="${bi}">+ เพิ่มจำนวนงวด</button></div>
+      <h3>ค่าใช้จ่ายวันออกรถ</h3>
+      <div class="scroll"><table class="tbl"><thead><tr><th>รายการ</th><th>ประเภท</th><th>ค่า</th><th style="text-align:right">ยอด</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div><button class="btn small" data-act="addRow" data-b="${bi}">+ เพิ่มรายการ</button></div>
+      <div class="fields">
+        <label class="f">ชื่อแถวยอดรวม ${inp(`${bp}.totalLabel`, b.totalLabel)}</label>
+        <label class="f wide">หมายเหตุใต้ชุดราคา ${inp(`${bp}.note`, b.note)}</label>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('editor').innerHTML = `
+    <div class="panel">
+      <h2>ข้อมูลชีต
+        <span class="actions"><button class="btn small ghost" data-act="dupTpl">ทำสำเนาชีต</button>
+        <button class="btn small ghost danger" data-act="delTpl">ลบชีต</button></span></h2>
+      <div class="fields">
+        <label class="f">ชื่อชีต ${inp(`${tp}.name`, t.name)}</label>
+        <label class="f">ชื่อลูกค้า ${inp(`${tp}.customer`, t.customer)}</label>
+        <label class="f">หัวข้อผู้ขาย (ทุกชีต) ${inp('consultantLabel', S.consultantLabel)}</label>
+        <label class="f wide">ที่ปรึกษาการขาย (ทุกชีต) ${inp('consultant', S.consultant)}</label>
+      </div>
+    </div>
+    ${blocks}
+    <div><button class="btn" data-act="addBlock">+ เพิ่มชุดราคา</button></div>
+    <div class="panel">
+      <h2>ของแถม</h2>
+      <label class="f wide">หัวข้อของแถม ${inp(`${tp}.giftsTitle`, t.giftsTitle)}</label>
+      <p class="hint">ติ๊กรายการที่จะให้ลูกค้า รายการที่ไม่ติ๊กจะไม่แสดงในใบเสนอราคาและไฟล์ที่ส่งออก</p>
+      <div class="gift-list">${t.gifts.map((g, i) => `<div class="gift ${g.on ? '' : 'off'}">
+        <label><input type="checkbox" data-p="${tp}.gifts.${i}.on" data-t="check" ${g.on ? 'checked' : ''}> <span>${esc(g.text)}</span></label>
+        ${g.fixed ? '' : `<button class="iconbtn" title="ลบรายการนี้" data-act="delGift" data-i="${i}">✕</button>`}</div>`).join('')}</div>
+      <div class="gift-add"><input type="text" id="giftNew" placeholder="พิมพ์รายการของแถมเพิ่มเติม"><button class="btn" data-act="addGift">เพิ่ม</button></div>
+    </div>
+    <div class="panel">
+      <h2>ข้อมูลทั้งหมด</h2>
+      <p class="hint">ข้อมูลบันทึกอัตโนมัติ ถ้าต้องการกลับไปใช้ค่าจากไฟล์ Excel ต้นฉบับ กดปุ่มด้านล่าง</p>
+      <div><button class="btn danger" data-act="reset">คืนค่าเริ่มต้นจาก Excel</button></div>
+    </div>`;
+}
+function refreshCalcs(){
+  const t = cur();
+  t.blocks.forEach((b, bi) => {
+    const c = calcBlock(b);
+    const q = s => document.querySelector(`[data-calc="${s}"]`);
+    const sum = q(`${bi}.sum`); if (sum) sum.textContent = `ราคารวม ${fmt(c.total)} · ดาวน์ ${fmt(c.down)} · ยอดจัด ${fmt(c.fin)}`;
+    c.terms.forEach((x, i) => { const e = q(`${bi}.m.${i}`); if (e) e.textContent = fmt(x.monthly); });
+    c.rows.forEach((x, i) => { const e = q(`${bi}.r.${i}`); if (e) e.textContent = x.val === null ? '' : fmt(x.val); });
+  });
+}
+
+/* ---------- quote (paper) ---------- */
+function renderQuote(){
+  const t = cur();
+  const blocks = t.blocks.map(b => {
+    const c = calcBlock(b);
+    const terms = c.terms.map(x => `<tr><td>${esc(x.label)}</td><td class="n">${fmtPct(x.rate)}</td><td class="n big">${fmt(x.monthly)}</td><td class="n">${fmt(x.interest)}</td></tr>`).join('');
+    const rows = c.rows.map(r => `<tr><td>${esc(r.label)}</td><td class="n">${r.k==='text' ? esc(r.text) : (r.k==='sub'||r.k==='discount' ? (r.val ? '−' + fmt(r.val) : '0') : fmt(r.val))}</td></tr>`).join('');
+    return `<div class="q-block">
+      <div class="q-model">${esc(b.model)}</div>
+      <div>
+        <table class="q-tbl">
+          <tr><td>ราคารถยนต์</td><td class="n">${fmt(c.price)}</td></tr>
+          ${c.extra ? `<tr><td>${esc(b.extraLabel)}</td><td class="n">${fmt(c.extra)}</td></tr><tr class="em"><td>รวม</td><td class="n">${fmt(c.total)}</td></tr>` : ''}
+          <tr><td>เงินดาวน์ ${fmtPct(b.downPct)}</td><td class="n">${fmt(c.down)}</td></tr>
+          <tr class="em"><td>ยอดจัด</td><td class="n">${fmt(c.fin)}</td></tr>
+        </table>
+        <div style="height:10px"></div>
+        <table class="q-tbl">
+          <tr><th>งวด</th><th>ดอกเบี้ย/ปี</th><th>ค่างวด/เดือน</th><th>ดอกเบี้ยรวม</th></tr>
+          ${terms}
+        </table>
+      </div>
+      <div>
+        <p class="q-cap">ค่าใช้จ่ายวันออกรถ</p>
+        <table class="q-tbl">${rows}
+          <tr class="q-total"><td>${esc(b.totalLabel)}</td><td class="n">${fmt(c.dayout)}</td></tr>
+        </table>
+      </div>
+      ${b.note ? `<div class="q-note">${esc(b.note)}</div>` : ''}
+    </div>`;
+  }).join('');
+  const gifts = t.gifts.filter(g => g.on).map(g => g.text);
+  document.getElementById('quote').innerHTML = `
+    <div class="q-head">
+      <div><div class="t">ใบเสนอราคา</div><div>${t.customer ? 'ลูกค้า: <b>' + esc(t.customer) + '</b>' : 'ลูกค้า: ____________________'}</div></div>
+      <div class="meta">${esc(S.consultantLabel)}<br><b>${esc(S.consultant)}</b></div>
+    </div>
+    ${blocks}
+    ${gifts.length ? `<div class="q-gifts"><h4>${esc(t.giftsTitle)}</h4><ul>${gifts.map(g => `<li>${esc(g)}</li>`).join('')}</ul></div>` : ''}`;
+}
+function renderAll(){ renderTabs(); renderEditor(); renderQuote(); fitPaper(); }
+function fitPaper(){
+  const w = document.querySelector('.paper-wrap'), q = document.getElementById('quote');
+  const z = Math.min(1, (w.clientWidth || 820) / 820);
+  q.style.zoom = z;
+}
+new ResizeObserver(fitPaper).observe(document.querySelector('.paper-wrap'));
+
+/* ---------- events ---------- */
+document.addEventListener('input', e => {
+  const el = e.target; const p = el.dataset.p; if (!p) return;
+  const ty = el.dataset.t;
+  let v = el.value;
+  if (ty === 'number') v = v === '' ? 0 : num(v);
+  if (ty === 'lines') v = v.split('\n').map(s => s.trim()).filter(Boolean);
+  if (ty === 'check') { v = el.checked; el.closest('.gift')?.classList.toggle('off', !v); }
+  if (el.id === 'giftNew') return;
+  setPath(p, v);
+  if (ty === 'kind') { const r = getPath(p.replace(/\.k$/, '')); if (r.k==='wht' && r.pct==null) r.pct = 3; if ((r.k==='add'||r.k==='sub'||r.k==='discount') && r.v==null) r.v = 0; if (r.k==='text' && r.text==null) r.text=''; renderEditor(); }
+  if (p.endsWith('.name')) renderTabs();
+  refreshCalcs(); renderQuote(); scheduleSave();
+});
+document.addEventListener('click', e => {
+  const tab = e.target.closest('[data-tab]');
+  if (tab) { S.activeId = tab.dataset.tab; renderAll(); scheduleSave(); return; }
+  const vs = e.target.closest('#viewSwitch button');
+  if (vs) { document.getElementById('grid').dataset.view = vs.dataset.v; return; }
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  const t = cur(), bi = +a.dataset.b, i = +a.dataset.i, b = t.blocks[bi];
+  switch (a.dataset.act) {
+    case 'addGift': { const box = document.getElementById('giftNew'); const v = box.value.trim(); if (!v) { box.focus(); return; }
+      if (t.gifts.some(g => g.text === v)) { toast('มีรายการนี้อยู่แล้ว'); return; } t.gifts.push({text: v, on: true}); break; }
+    case 'delGift': t.gifts.splice(i, 1); break;
+    case 'newTpl': { const n = normGifts(clone(DEFAULTS.templates[0])); n.id = uid(); n.name = 'ชีตใหม่'; S.templates.push(n); S.activeId = n.id; break; }
+    case 'dupTpl': { const n = clone(t); n.id = uid(); n.name = t.name + ' (สำเนา)'; S.templates.splice(S.templates.indexOf(t) + 1, 0, n); S.activeId = n.id; break; }
+    case 'delTpl': if (S.templates.length < 2) { toast('ต้องมีอย่างน้อย 1 ชีต'); return; }
+      confirmBox(`ลบชีต "${t.name}" ?`, () => { const k = S.templates.indexOf(t); S.templates.splice(k, 1); S.activeId = S.templates[Math.max(0, k - 1)].id; renderAll(); scheduleSave(); }); return;
+    case 'addBlock': t.blocks.push(clone(t.blocks[t.blocks.length - 1] || DEFAULTS.templates[0].blocks[1])); break;
+    case 'dupBlock': t.blocks.splice(bi + 1, 0, clone(b)); break;
+    case 'delBlock': confirmBox(`ลบชุดราคา ${bi + 1} ?`, () => { t.blocks.splice(bi, 1); renderAll(); scheduleSave(); }); return;
+    case 'addTerm': { const last = b.terms[b.terms.length - 1]; const m = last ? num(last.months) + 12 : 48; b.terms.push({months: m, rate: last ? last.rate : 3, label: `${m} งวด (${+(m/12).toFixed(2)} ปี)`}); break; }
+    case 'delTerm': b.terms.splice(i, 1); break;
+    case 'addRow': b.rows.push({k:'add', label:'รายการใหม่', v:0}); break;
+    case 'delRow': b.rows.splice(i, 1); break;
+    case 'reset': confirmBox('คืนค่าทั้งหมดเป็นค่าจากไฟล์ Excel ต้นฉบับ? ข้อมูลที่แก้ไว้จะหายทั้งหมด', () => { S = freshState(); renderAll(); scheduleSave(); }); return;
+    case 'xlsx': exportXlsx(false); return;
+    default: return;
+  }
+  renderAll(); scheduleSave();
+});
+function confirmBox(msg, ok){
+  const L = document.getElementById('layer');
+  L.innerHTML = `<div class="overlay"><div class="dialog" role="dialog" aria-modal="true"><p>${esc(msg)}</p>
+    <div class="row-actions"><button class="btn" id="cNo">ยกเลิก</button><button class="btn primary" id="cYes">ยืนยัน</button></div></div></div>`;
+  document.getElementById('cNo').onclick = () => L.innerHTML = '';
+  document.getElementById('cYes').onclick = () => { L.innerHTML = ''; ok(); };
+}
+
+/* ---------- export ---------- */
+async function offer(filename, blob, fallbackImgUrl){
+  if (!window.claude) { // opened as a plain file outside Claude: normal browser download
+    const u = URL.createObjectURL(blob), aEl = document.createElement('a');
+    const ext = filename.slice(filename.lastIndexOf('.'));
+    const base = filename.slice(0, -ext.length).replace(/[^\x20-\x7e]/g, '').replace(/-+$/, '').trim() || 'quote';
+    aEl.href = u; aEl.download = base + '-' + new Date().toISOString().slice(0, 10) + ext; document.body.appendChild(aEl); aEl.click(); aEl.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 5000); toast('ดาวน์โหลดไฟล์แล้ว'); return;
+  }
+  let dl = null;
+  try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch(e) {}
+  if (dl) {
+    try { await dl.save({filename, data: blob}); toast('บันทึกไฟล์แล้ว'); return; }
+    catch(e) { if (e && e.code === 'declined') return; if (e && e.code === 'rate_limited') { toast('รอสักครู่แล้วลองใหม่'); return; } }
+  }
+  const L = document.getElementById('layer');
+  L.innerHTML = `<div class="overlay"><div class="dialog"><p>${fallbackImgUrl ? 'กดค้างหรือคลิกขวาที่รูปเพื่อบันทึก' : 'หน้านี้ดาวน์โหลดไฟล์ไม่ได้ ลองเปิดจาก claude.ai'}</p>
+    ${fallbackImgUrl ? `<img src="${fallbackImgUrl}" alt="ใบเสนอราคา">` : ''}
+    <div class="row-actions"><button class="btn" id="cNo">ปิด</button></div></div></div>`;
+  document.getElementById('cNo').onclick = () => L.innerHTML = '';
+}
+const safeName = s => (s || 'quote').replace(/[\\/:*?"<>|\[\]]/g, '').trim() || 'quote';
+async function exportJpg(){
+  const btn = document.getElementById('btnJpg'); btn.disabled = true; btn.textContent = 'กำลังสร้างรูป…';
+  try {
+    await document.fonts.ready;
+    const q = document.getElementById('quote'); q.style.zoom = 1;
+    let canvas;
+    try { canvas = await html2canvas(document.getElementById('quote'), {scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: 1400}); } finally { fitPaper(); }
+    const url = canvas.toDataURL('image/jpeg', 0.93);
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.93));
+    const t = cur();
+    await offer(`${safeName(t.name)}${t.customer ? '-' + safeName(t.customer) : ''}.jpg`, blob, url);
+  } catch(e) { toast('สร้างรูปไม่สำเร็จ'); }
+  btn.disabled = false; btn.textContent = 'ส่งออก JPEG';
+}
+function buildSheet(t){
+  const ws = {}; const merges = []; let maxR = 0;
+  const A = (r, c) => XLSX.utils.encode_cell({r: r - 1, c});
+  const put = (r, c, v, z) => {
+    maxR = Math.max(maxR, r);
+    let cell;
+    if (v && typeof v === 'object') cell = v;
+    else if (typeof v === 'number') cell = {t:'n', v};
+    else cell = {t:'s', v: String(v ?? '')};
+    if (z) cell.z = z;
+    ws[A(r, c)] = cell;
+  };
+  const F = (f, v) => ({t:'n', f, v});
+  put(1, 0, S.consultantLabel); put(1, 2, S.consultant);
+  put(2, 0, 'ชื่อลูกค้า'); put(2, 2, t.customer || '');
+  let r = 4;
+  t.blocks.forEach(b => {
+    const c = calcBlock(b);
+    put(r, 0, 'รุ่น/สี'); put(r, 2, b.model); merges.push({s:{r:r-1,c:2}, e:{r:r-1,c:5}});
+    put(r, 6, 'ค่าใช้จ่ายวันออกรถ'); merges.push({s:{r:r-1,c:6}, e:{r:r-1,c:7}});
+    const rp = r + 1, rd = r + 2, rf = r + 3;
+    put(rp, 0, 'ราคารถยนต์'); put(rp, 2, c.price); put(rp, 3, c.extra); put(rp, 4, F(`C${rp}+D${rp}`, c.total));
+    put(rd, 0, 'เงินดาวน์'); put(rd, 1, +(num(b.downPct) / 100).toFixed(8), '0%'); put(rd, 2, F(`E${rp}*B${rd}`, c.down));
+    put(rf, 0, 'ยอดจัด'); put(rf, 2, F(`E${rp}-C${rd}`, c.fin));
+    put(r + 4, 2, 'ดอกเบี้ย/ปี'); put(r + 4, 3, 'ค่างวด/เดือน'); put(r + 4, 4, 'ดอกเบี้ยรวม'); put(r + 4, 5, 'หมายเหตุ');
+    let tr = r + 5;
+    c.terms.forEach(x => {
+      const m = num(x.months), y = +(m / 12).toFixed(6);
+      put(tr, 0, x.label); put(tr, 2, +(num(x.rate) / 100).toFixed(8), '0.00%');
+      put(tr, 3, F(`(((C${rf}*C${tr})*${y})+C${rf})/${m || 1}`, x.monthly), '#,##0');
+      put(tr, 4, F(`(C${rf}*C${tr})*${y}`, x.interest), '#,##0');
+      tr++;
+    });
+    // day-out costs on the right (G/H)
+    let rr = r + 1; const discCells = [], plus = [], minus = []; const whtRows = [];
+    c.rows.forEach(x => {
+      put(rr, 6, x.label);
+      if (x.k === 'down') { put(rr, 7, F(`C${rd}`, x.val), '#,##0'); plus.push(`H${rr}`); }
+      else if (x.k === 'text') put(rr, 7, x.text || '');
+      else if (x.k === 'add') { put(rr, 7, x.val, '#,##0'); plus.push(`H${rr}`); }
+      else if (x.k === 'sub') { put(rr, 7, x.val, '#,##0'); minus.push(`H${rr}`); }
+      else if (x.k === 'discount') { put(rr, 7, x.val, '#,##0'); minus.push(`H${rr}`); discCells.push(`H${rr}`); }
+      else if (x.k === 'wht') { whtRows.push([rr, x]); plus.push(`H${rr}`); }
+      rr++;
+    });
+    whtRows.forEach(([row, x]) => put(row, 7, F(discCells.length ? `(${discCells.join('+')})*${num(x.pct)}/100` : '0', x.val), '#,##0'));
+    const tf = (plus.length ? plus.join('+') : '0') + (minus.length ? '-' + minus.join('-') : '');
+    put(rr, 6, b.totalLabel); put(rr, 7, F(tf, c.dayout), '#,##0');
+    let end = Math.max(tr, rr + 1);
+    if (b.note) { put(end, 1, b.note); end++; }
+    r = end + 1;
+  });
+  put(r, 0, t.giftsTitle);
+  const gl = t.gifts.filter(g => g.on).map(g => g.text), half = Math.ceil(gl.length / 2);
+  gl.forEach((g, i) => i < half ? put(r + 1 + i, 0, g) : put(r + 1 + i - half, 4, g));
+  ws['!ref'] = `A1:H${Math.max(maxR, 1)}`;
+  ws['!merges'] = merges;
+  ws['!cols'] = [{wch:16},{wch:7},{wch:14},{wch:13},{wch:13},{wch:10},{wch:28},{wch:12}];
+  return ws;
+}
+function exportXlsx(all){
+  if (!window.XLSX) { toast('โหลดตัวสร้าง Excel ไม่สำเร็จ'); return; }
+  const wb = XLSX.utils.book_new(); const used = new Set();
+  (all ? S.templates : [cur()]).forEach(t => {
+    let nm = safeName(t.name).slice(0, 31), k = 2;
+    while (used.has(nm.toLowerCase())) nm = safeName(t.name).slice(0, 27) + ' (' + (k++) + ')';
+    used.add(nm.toLowerCase());
+    XLSX.utils.book_append_sheet(wb, buildSheet(t), nm);
+  });
+  const out = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  const blob = new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const t = cur();
+  offer(all ? 'car-price-all-sheets.xlsx' : `${safeName(t.name)}${t.customer ? '-' + safeName(t.customer) : ''}.xlsx`, blob, null);
+}
+document.getElementById('btnJpg').onclick = exportJpg;
+document.getElementById('btnXlsx').onclick = () => exportXlsx(false);
+document.getElementById('btnXlsxAll').onclick = () => exportXlsx(true);
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'giftNew') { e.preventDefault(); document.querySelector('[data-act="addGift"]').click(); } });
+renderAll();
+initStore();
+</script>
+
+</body>
+</html>
